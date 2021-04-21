@@ -30,6 +30,7 @@ import (
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ramendrv1alpha1 "github.com/ramendr/ramen/api/v1alpha1"
 	"github.com/ramendr/ramen/controllers"
+	fndv2 "github.com/tjanssen3/multicloud-operators-foundation/v2/pkg/apis/view/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
@@ -858,6 +859,14 @@ var _ = Describe("ApplicationVolumeReplication Reconciler", func() {
 			}
 
 			Expect(controllers.IsManifestInAppliedState(mw)).To(Equal(false))
+		})
+	})
+
+	Describe("ManagedClusterView", func() {
+		It("basic", func() {
+			mcv := &fndv2.ManagedClusterView{}
+
+			Expect(mcv).NotTo(Equal(nil))
 		})
 	})
 })
