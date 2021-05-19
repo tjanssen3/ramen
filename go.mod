@@ -4,16 +4,15 @@ go 1.15
 
 require (
 	github.com/aws/aws-sdk-go v1.38.3
+	github.com/csi-addons/volume-replication-operator v0.1.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.4.0
-	github.com/onsi/ginkgo v1.14.1
-	github.com/onsi/gomega v1.10.2
+	github.com/onsi/ginkgo v1.16.1
+	github.com/onsi/gomega v1.11.0
 	github.com/open-cluster-management/api v0.0.0-20210409125704-06f2aec1a73f
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12
 	github.com/open-cluster-management/multicloud-operators-subscription v1.2.2-2-20201130-59f96
 	github.com/pkg/errors v0.9.1
-	github.com/shyamsundarr/volrep-shim-operator v0.0.0-20210310121354-2f9f9b83efb6
-	go.uber.org/zap v1.15.0
 	k8s.io/api v0.20.5
 	k8s.io/apimachinery v0.20.5
 	k8s.io/client-go v12.0.0+incompatible
@@ -22,8 +21,11 @@ require (
 
 replace k8s.io/client-go => k8s.io/client-go v0.20.0
 
-// below: temporary measure to include multicloud-operators-foundation project with ManagedClusterView through forked repo
-require github.com/tjanssen3/multicloud-operators-foundation/v2 v2.0.0-20210512222428-660109db7f1d
+require (
+	// below: temporary measure to include multicloud-operators-foundation project with ManagedClusterView through forked repo
+	github.com/tjanssen3/multicloud-operators-foundation/v2 v2.0.0-20210512222428-660109db7f1d
+	go.uber.org/zap v1.15.0
+)
 
 replace (
 	github.com/kubevirt/terraform-provider-kubevirt => github.com/nirarg/terraform-provider-kubevirt v0.0.0-20201222125919-101cee051ed3
