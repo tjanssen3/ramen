@@ -412,13 +412,13 @@ func (mwu *MWUtil) deleteManifestWork(mwName, mwNamespace string) error {
 	return nil
 }
 
-func GetMetricValueSingle(name string, mfType dto.MetricType) (float64, error) {
-	mf, err := getMetricFamilyFromRegistry(name)
+func GetMetricValueSingle(name string, mfType dto.MetricType, registry metrics.RegistererGatherer) (float64, error) {
+	mf, err := getMetricFamilyFromRegistry(name, registry)
 	if err != nil {
 		return 0.0, fmt.Errorf("GetMetricValueSingle returned error finding MetricFamily: %w", err)
 	}
 
-	val, err := getMetricValueFromMetricFamilyByType(mf, mfType)
+	val, err := getMetricValueFromMetricFamilyByTypeSingle(mf, mfType)
 	if err != nil {
 		return 0.0, fmt.Errorf("GetMetricValueSingle returned error finding Value: %w", err)
 	}
@@ -426,8 +426,23 @@ func GetMetricValueSingle(name string, mfType dto.MetricType) (float64, error) {
 	return val, nil
 }
 
-func getMetricFamilyFromRegistry(name string) (*dto.MetricFamily, error) {
-	metricsFamilies, err := metrics.Registry.Gather() // TODO: see if this can be made more generic
+func GetMetricValueVector(name string, label string, mfType dto.MetricType,
+	registry metrics.RegistererGatherer) (float64, error) {
+	mf, err := getMetricFamilyFromRegistry(name, registry)
+	if err != nil {
+		return 0.0, fmt.Errorf("GetMetricValueSingle returned error finding MetricFamily: %w", err)
+	}
+
+	val, err := getMetricValueFromMetricFamilyByTypeVector(mf, label, mfType)
+	if err != nil {
+		return 0.0, fmt.Errorf("GetMetricValueSingle returned error finding Value: %w", err)
+	}
+
+	return val, nil
+}
+
+func getMetricFamilyFromRegistry(name string, registry metrics.RegistererGatherer) (*dto.MetricFamily, error) {
+	metricsFamilies, err := registry.Gather()
 	if err != nil {
 		return nil, fmt.Errorf("found error during Gather step of getMetricFamilyFromRegistry: %w", err)
 	}
@@ -443,33 +458,67 @@ func getMetricFamilyFromRegistry(name string) (*dto.MetricFamily, error) {
 		}
 	}
 
-	return nil, fmt.Errorf(fmt.Sprint("couldn't find MetricFamily with name", name))
+	return nil, fmt.Errorf(fmt.Sprintf("couldn't find MetricFamily with name %s", name))
 }
 
-func getMetricValueFromMetricFamilyByType(mf *dto.MetricFamily, mfType dto.MetricType) (float64, error) {
+func getMetricValueFromMetricFamilyByTypeSingle(mf *dto.MetricFamily, mfType dto.MetricType) (float64, error) {
 	if *mf.Type != mfType {
-		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByType passed invalid type. Wanted %s, got %s",
+		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByTypeSingle passed invalid type. Wanted %s, got %s",
 			string(mfType), string(*mf.Type))
 	}
 
 	if len(mf.Metric) != 1 {
-		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByType only supports Metric length=1")
+		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByTypeSingle only supports Metric length=1")
 	}
 
+	return getValueFromMetricWithIndex(mf, mfType, 0)
+}
+
+func getMetricValueFromMetricFamilyByTypeVector(
+	mf *dto.MetricFamily, label string, mfType dto.MetricType) (float64, error) {
+	if *mf.Type != mfType {
+		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByTypeSingle passed invalid type. Wanted %s, got %s",
+			string(mfType), string(*mf.Type))
+	}
+
+	if len(mf.Metric) == 0 {
+		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByTypeSingle only supports existing labels. Add one first")
+	}
+
+	// find correct index
+	indexLabel := -1
+
+	for i := 0; i < len(mf.Metric); i++ {
+		if *mf.Metric[i].Label[0].Value == label {
+			indexLabel = i
+
+			break
+		}
+	}
+
+	if indexLabel == -1 {
+		return 0.0, fmt.Errorf(
+			fmt.Sprintf("getMetricValueFromMetricFamilyByTypeSingle couldn't find label with name '%s'", label))
+	}
+
+	return getValueFromMetricWithIndex(mf, mfType, indexLabel)
+}
+
+func getValueFromMetricWithIndex(mf *dto.MetricFamily, mfType dto.MetricType, index int) (float64, error) {
 	switch mfType {
 	case dto.MetricType_COUNTER:
-		return *mf.Metric[0].Counter.Value, nil
+		return *mf.Metric[index].Counter.Value, nil
 	case dto.MetricType_GAUGE:
-		return *mf.Metric[0].Gauge.Value, nil
+		return *mf.Metric[index].Gauge.Value, nil
 	case dto.MetricType_HISTOGRAM:
 		// Count is more useful for testing over Sum; get Sum elsewhere if needed
-		return float64(*mf.Metric[0].Histogram.SampleCount), nil
+		return float64(*mf.Metric[index].Histogram.SampleCount), nil
 	case dto.MetricType_SUMMARY:
 		fallthrough
 	case dto.MetricType_UNTYPED:
 		fallthrough
 	default:
-		return 0.0, fmt.Errorf("getMetricValueFromMetricFamilyByType doesn't support type %s yet. Implement this",
+		return 0.0, fmt.Errorf("getValueFromMetricWithIndex doesn't support type %s yet. Implement this",
 			string(mfType))
 	}
 }
