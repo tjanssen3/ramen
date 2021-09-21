@@ -727,9 +727,16 @@ func (d *DRPCInstance) cleanupSecondaries(skipCluster string) (bool, error) {
 			return false, nil
 		}
 
-		mcvName := BuildManagedClusterViewName(d.instance.Name, d.instance.Namespace, "vrg")
+		mcvNameVRG := BuildManagedClusterViewName(d.instance.Name, d.instance.Namespace, rmnutil.MWTypeVRG)
 		// MW is deleted, VRG is deleted, so we no longer need MCV for the VRG
-		err = d.reconciler.deleteManagedClusterView(clusterName, mcvName)
+		err = d.reconciler.deleteManagedClusterView(clusterName, mcvNameVRG)
+		if err != nil {
+			return false, err
+		}
+
+		mcvNameNS := BuildManagedClusterViewName(d.instance.Name, d.instance.Namespace, rmnutil.MWTypeNS)
+		// MCV for Namespace is no longer needed
+		err = d.reconciler.deleteManagedClusterView(clusterName, mcvNameNS)
 		if err != nil {
 			return false, err
 		}
@@ -785,6 +792,13 @@ func (d *DRPCInstance) updateUserPlacementRuleStatus(status plrv1.PlacementRuleS
 }
 
 func (d *DRPCInstance) createVRGManifestWork(homeCluster string) error {
+	err := d.ensureNamespaceExistsOnManagedCluster(homeCluster)
+	if err != nil {
+		return fmt.Errorf("createVRGManifestWork couldn't ensure namespace '%s' on cluster %s exists",
+			d.instance.Namespace, homeCluster)
+	}
+
+	// create VRG ManifestWork
 	d.log.Info("Creating VRG ManifestWork",
 		"Last State:", d.getLastDRState(), "cluster", homeCluster)
 
@@ -798,6 +812,29 @@ func (d *DRPCInstance) createVRGManifestWork(homeCluster string) error {
 	}
 
 	return nil
+}
+
+func (d *DRPCInstance) ensureNamespaceExistsOnManagedCluster(homeCluster string) error {
+	// verify namespace exists on target cluster
+	namespaceExists, err := d.namespaceExistsOnManagedCluster(homeCluster)
+
+	d.log.Info(fmt.Sprintf("createVRGManifestWork: namespace '%s' exists on cluster %s: %t",
+		d.instance.Namespace, homeCluster, namespaceExists))
+
+	if err != nil {
+		return fmt.Errorf("failed to verify if namespace '%s' on cluster %s exists: %w",
+			d.instance.Namespace, homeCluster, err)
+	}
+
+	if !namespaceExists { // attempt to create it
+		if err := d.mwu.CreateOrUpdateNamespaceManifest(d.instance.Name, d.instance.Namespace, homeCluster); err != nil {
+			return fmt.Errorf("failed to create namespace '%s' on cluster %s: %w", d.instance.Namespace, homeCluster, err)
+		}
+
+		d.log.Info(fmt.Sprintf("Created Namespace '%s' on cluster %s", d.instance.Namespace, homeCluster))
+	}
+
+	return nil // either namespace exists, or we created it
 }
 
 func (d *DRPCInstance) isVRGPrimary(vrg *rmn.VolumeReplicationGroup) bool {
@@ -875,6 +912,35 @@ func (d *DRPCInstance) updateCondition(condition *metav1.Condition, idx int, rea
 	condition.ObservedGeneration = d.instance.Generation
 	d.instance.Status.Conditions[idx] = *condition
 	d.needStatusUpdate = true
+}
+
+func (d *DRPCInstance) namespaceExistsOnManagedCluster(cluster string) (bool, error) {
+	exists := true
+
+	// create ManagedClusterView to check if namespace exists
+	namespace, err := d.reconciler.MCVGetter.GetNamespaceFromManagedCluster(d.instance.Name, cluster, d.instance.Namespace)
+	if err != nil {
+		if errors.IsNotFound(err) { // successfully detected that Namespace is not found by ManagedClusterView
+			d.log.Info(fmt.Sprintf("Namespace '%s' not found on cluster %s", d.instance.Namespace, cluster))
+
+			return !exists, nil
+		}
+
+		d.log.Error(err, "failed get Namespace from ManagedCluster")
+
+		return !exists, errorswrapper.Wrap(err, "failed to get Namespace from managedcluster")
+	}
+
+	// sanity checks: only allow Active namespaces
+	if namespace == nil {
+		return !exists, errorswrapper.Wrap(err, "failed to get Namespace from managedcluster - namespace=nil")
+	}
+
+	if namespace.Status.Phase != corev1.NamespaceActive {
+		return !exists, errorswrapper.Wrap(err, "namespace.Status.Phase != NamespaceActive")
+	}
+
+	return exists, nil // namespace exists and looks good to use
 }
 
 func (d *DRPCInstance) ensureVRGManifestWorkOnClusterDeleted(clusterName string) (bool, error) {

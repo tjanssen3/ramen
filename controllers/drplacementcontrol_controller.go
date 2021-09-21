@@ -28,6 +28,7 @@ import (
 	viewv1beta1 "github.com/open-cluster-management/multicloud-operators-foundation/pkg/apis/view/v1beta1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	errorswrapper "github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -178,6 +179,8 @@ type ProgressCallback func(string, string)
 type ManagedClusterViewGetter interface {
 	GetVRGFromManagedCluster(
 		resourceName, resourceNamespace, managedCluster string) (*rmn.VolumeReplicationGroup, error)
+
+	GetNamespaceFromManagedCluster(resourceName, resourceNamespace, managedCluster string) (*corev1.Namespace, error)
 }
 
 type ManagedClusterViewGetterImpl struct {
@@ -208,6 +211,28 @@ func (m ManagedClusterViewGetterImpl) GetVRGFromManagedCluster(
 	err := m.getManagedClusterResource(mcvMeta, mcvViewscope, vrg, logger)
 
 	return vrg, err
+}
+
+func (m ManagedClusterViewGetterImpl) GetNamespaceFromManagedCluster(
+	resourceName, managedCluster, namespaceString string) (*corev1.Namespace, error) {
+	logger := ctrl.Log.WithName("MCV").WithValues("resouceName", resourceName)
+
+	// get Namespace and verify status through ManagedClusterView
+	mcvMeta := metav1.ObjectMeta{
+		Name:      BuildManagedClusterViewName(resourceName, namespaceString, rmnutil.MWTypeNS),
+		Namespace: managedCluster,
+	}
+
+	mcvViewscope := viewv1beta1.ViewScope{
+		Resource: "Namespace",
+		Name:     namespaceString,
+	}
+
+	namespace := &corev1.Namespace{}
+
+	err := m.getManagedClusterResource(mcvMeta, mcvViewscope, namespace, logger)
+
+	return namespace, err
 }
 
 /*
@@ -472,6 +497,7 @@ func (r *DRPlacementControlReconciler) SetupWithManager(mgr ctrl.Manager) error 
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
+
 func (r *DRPlacementControlReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log.WithValues("DRPC", req.NamespacedName)
 
