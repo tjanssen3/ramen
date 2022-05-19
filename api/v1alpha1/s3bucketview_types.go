@@ -27,6 +27,18 @@ type S3BucketViewSpec struct {
 	ProfileName string `json:"profileName"`
 }
 
+// MetaInfo defines the metadata information to be copied from a VRG
+// ObjectMeta isn't properly transferred by the KubeAPI server, so this is a workaround
+
+type MetaInfo struct {
+	Name string `json:"name,"`
+
+	Namespace string `json:"namespace,"`
+
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
 // S3BucketViewStatus defines the observed state of S3BucketView
 type S3BucketViewStatus struct {
 	// SampleTime is a timestamp representing the node time when the specified
@@ -35,7 +47,7 @@ type S3BucketViewStatus struct {
 
 	// VolumeRelicationGroups is a list of VolumeReplicationGroup objects represented in
 	// the specified S3 bucket when it was last queried.
-	VolumeReplicationGroups []VolumeReplicationGroup `json:"volumeReplicationGroups,omitempty"`
+	VolumeReplicationGroups []MetaInfo `json:"volumeReplicationGroups,omitempty"`
 }
 
 //+kubebuilder:object:root=true

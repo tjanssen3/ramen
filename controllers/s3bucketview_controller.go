@@ -129,7 +129,7 @@ func (s *S3BucketViewInstance) shouldProcess() bool {
 }
 
 func (s *S3BucketViewInstance) initializeStatus() {
-	s.instance.Status.VolumeReplicationGroups = make([]ramendrv1alpha1.VolumeReplicationGroup, 0)
+	s.instance.Status.VolumeReplicationGroups = make([]ramendrv1alpha1.MetaInfo, 0)
 	s.instance.Status.SampleTime = metav1.Time{}
 }
 
@@ -188,11 +188,27 @@ func (s *S3BucketViewInstance) updateStatus(vrgs []ramendrv1alpha1.VolumeReplica
 	sampleTime := time.Now().Local()
 
 	// store all data in Status
-	s.instance.Status.VolumeReplicationGroups = vrgs
+	s.instance.Status.VolumeReplicationGroups = getObjectMeta(vrgs)
 	s.instance.Status.SampleTime = metav1.Time{Time: sampleTime}
 
 	// final Status update to object
 	return s.reconciler.Status().Update(s.ctx, s.instance)
+}
+
+func getObjectMeta(vrgs []ramendrv1alpha1.VolumeReplicationGroup) []ramendrv1alpha1.MetaInfo {
+	metas := make([]ramendrv1alpha1.MetaInfo, 0)
+
+	for _, vrg := range vrgs {
+		meta := ramendrv1alpha1.MetaInfo{
+			Name:        vrg.Name,
+			Namespace:   vrg.Namespace,
+			Annotations: vrg.Annotations,
+		}
+
+		metas = append(metas, meta)
+	}
+
+	return metas
 }
 
 func (s *S3BucketViewInstance) ParseResultListFromS3Bucket(s3ProfileName string, prefix string,
