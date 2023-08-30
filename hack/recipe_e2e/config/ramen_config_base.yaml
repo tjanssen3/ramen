@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ramen-dr-cluster-operator-config
-  namespace: ramen-system
+  namespace: openshift-dr-system
 data:
   ramen_manager_config.yaml: |
     s3StoreProfiles:
@@ -13,7 +13,7 @@ data:
       s3Region: us-east-1
       s3SecretRef:
         name: minio-s3
-        namespace: ramen-system
+        namespace: openshift-dr-system
       VeleroNamespaceSecretKeyRef:
         key: cloud
         name: cloud-credentials
@@ -23,7 +23,7 @@ data:
       s3Region: us-east-1
       s3SecretRef:
         name: minio-s3
-        namespace: ramen-system
+        namespace: openshift-dr-system
       VeleroNamespaceSecretKeyRef:
         key: cloud
         name: cloud-credentials
@@ -32,8 +32,8 @@ data:
       s3SecretDistributionEnabled: true
       channelName: alpha
       packageName: ramen-dr-cluster-operator
-      namespaceName: ramen-system
+      namespaceName: openshift-dr-system
       catalogSourceName: ramen-catalog
-      catalogSourceNamespaceName: ramen-system
+      catalogSourceNamespaceName: openshift-dr-system
       clusterServiceVersionName: ramen-dr-cluster-operator.v0.0.1
     veleroNamespaceName: "velero"

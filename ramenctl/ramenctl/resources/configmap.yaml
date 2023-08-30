@@ -28,9 +28,9 @@ data:
       s3SecretDistributionEnabled: true
       channelName: alpha
       packageName: ramen-dr-cluster-operator
-      namespaceName: ramen-system
+      namespaceName: openshift-dr-system
       catalogSourceName: ramen-catalog
-      catalogSourceNamespaceName: ramen-system
+      catalogSourceNamespaceName: openshift-dr-system
       clusterServiceVersionName: ramen-dr-cluster-operator.v0.0.1
     kubeObjectProtection:
       veleroNamespaceName: velero
@@ -41,7 +41,7 @@ data:
       s3Region: us-west-1
       s3SecretRef:
         name: ramen-s3-secret
-        namespace: ramen-system
+        namespace: openshift-dr-system
       veleroNamespaceSecretKeyRef:
         key: cloud
         name: cloud-credentials
@@ -51,7 +51,7 @@ data:
       s3Region: us-east-1
       s3SecretRef:
         name: ramen-s3-secret
-        namespace: ramen-system
+        namespace: openshift-dr-system
       veleroNamespaceSecretKeyRef:
         key: cloud
         name: cloud-credentials

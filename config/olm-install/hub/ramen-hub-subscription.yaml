@@ -3,11 +3,11 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: ramen-hub-subscription
-  namespace: ramen-system
+  namespace: openshift-dr-system
 spec:
   channel: "alpha"
   installPlanApproval: Automatic
   name: ramen-hub-operator
   source: ramen-catalog
-  sourceNamespace: ramen-system
+  sourceNamespace: openshift-dr-system
   startingCSV: ramen-hub-operator.v0.0.1

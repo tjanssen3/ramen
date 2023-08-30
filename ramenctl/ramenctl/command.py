@@ -7,7 +7,7 @@ import os
 from drenv import commands
 from drenv import ramen
 
-RAMEN_NAMESPACE = "ramen-system"
+RAMEN_NAMESPACE = "openshift-dr-system"
 SOURCE_DIR = "."
 
 log = logging.getLogger("ramenctl")

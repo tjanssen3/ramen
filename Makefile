@@ -33,13 +33,13 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 IMAGE_REGISTRY ?= quay.io
-IMAGE_REPOSITORY ?= ramendr
+IMAGE_REPOSITORY ?= tjanssen2
 IMAGE_NAME ?= ramen
-IMAGE_TAG ?= latest
+IMAGE_TAG ?= 9e9171
 PLATFORM ?= k8s
 IMAGE_TAG_BASE = $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME)
 RBAC_PROXY_IMG ?= "gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0"
-OPERATOR_SUGGESTED_NAMESPACE ?= ramen-system
+OPERATOR_SUGGESTED_NAMESPACE ?= openshift-dr-system
 AUTO_CONFIGURE_DR_CLUSTER ?= true
 KUBE_OBJECT_PROTECTION_DISABLED ?= false
 
@@ -91,7 +91,7 @@ endif
 
 GO_TEST_GINKGO_ARGS ?= -test.v -ginkgo.v -ginkgo.fail-fast
 
-DOCKERCMD ?= podman
+DOCKERCMD ?= docker
 
 ENVTEST_K8S_VERSION = 1.25.0
 ENVTEST_ASSETS_DIR = $(shell pwd)/testbin
@@ -307,7 +307,7 @@ bundle-hub: manifests kustomize operator-sdk ## Generate hub bundle manifests an
 		--patch '[{"op": "replace", "path": "/spec/replaces", "value": "$(REPLACES)"}]'
 	$(SED_CMD) -e "s,channelName: alpha,channelName: $(DEFAULT_CHANNEL)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml
 	$(SED_CMD) -e "s,packageName: ramen-dr-cluster-operator,packageName: $(DRCLUSTER_NAME)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml
-	$(SED_CMD) -e "s,namespaceName: ramen-system,namespaceName: $(OPERATOR_SUGGESTED_NAMESPACE)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml
+	$(SED_CMD) -e "s,namespaceName: openshift-dr-system,namespaceName: $(OPERATOR_SUGGESTED_NAMESPACE)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml
 	$(SED_CMD) -e "s,clusterServiceVersionName: ramen-dr-cluster-operator.v0.0.1,clusterServiceVersionName: $(DRCLUSTER_NAME).v$(VERSION)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml
 	$(SED_CMD) -e "s,deploymentAutomationEnabled: true,deploymentAutomationEnabled: $(AUTO_CONFIGURE_DR_CLUSTER)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml
 	$(SED_CMD) -e "s,s3SecretDistributionEnabled: true,s3SecretDistributionEnabled: $(AUTO_CONFIGURE_DR_CLUSTER)," -i config/hub/manifests/$(IMAGE_NAME)/ramen_manager_config_append.yaml

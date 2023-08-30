@@ -3,7 +3,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
   name: ramen-catalog
-  namespace: ramen-system
+  namespace: openshift-dr-system
 spec:
   displayName: Ramen Operators
   image: ramen-operator-catalog:canary

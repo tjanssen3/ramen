@@ -21,7 +21,7 @@ env:
   IMAGE_TAG_BASE: ${{ vars.IMAGE_TAG_BASE || 'quay.io/ramendr/ramen' }}
   IMAGE_REPOSITORY: ${{ vars.IMAGE_REPOSITORY || 'ramendr' }}
   IMAGE_NAME: ${{ vars.IMAGE_NAME || 'ramen' }}
-  OPERATOR_SUGGESTED_NAMESPACE: ${{ vars.OPERATOR_SUGGESTED_NAMESPACE || 'ramen-system' }}
+  OPERATOR_SUGGESTED_NAMESPACE: ${{ vars.OPERATOR_SUGGESTED_NAMESPACE || 'openshift-dr-system' }}
   # Constants
   GO_VERSION: "1.19"
   IMAGE_REGISTRY: "quay.io"
@@ -270,9 +270,9 @@ jobs:
       - name: Deploy operator
         run: |
           make deploy
-          kubectl get deployment -n ramen-system
-          kubectl -n ramen-system wait --for=condition=Available --timeout=60s deploy/ramen-hub-operator
-          kubectl -n ramen-system wait --for=condition=Available --timeout=60s deploy/ramen-dr-cluster-operator
+          kubectl get deployment -n openshift-dr-system
+          kubectl -n openshift-dr-system wait --for=condition=Available --timeout=60s deploy/ramen-hub-operator
+          kubectl -n openshift-dr-system wait --for=condition=Available --timeout=60s deploy/ramen-dr-cluster-operator
 
       - name: Display failure logs
         if: ${{ failure() }}
@@ -281,13 +281,13 @@ jobs:
           echo "===> NODE details <==="
           kubectl get node -o yaml
           echo "===> Ramen POD details <==="
-          kubectl get pods -n ramen-system -o yaml
+          kubectl get pods -n openshift-dr-system -o yaml
           echo "===> Ramen POD describe <==="
-          kubectl describe pods -n ramen-system
+          kubectl describe pods -n openshift-dr-system
           echo "===> Ramen DR Orchestrator POD logs <==="
-          kubectl logs -n ramen-system deployment/ramen-hub-operator -c manager
+          kubectl logs -n openshift-dr-system deployment/ramen-hub-operator -c manager
           echo "===> Ramen DR Manager POD logs <==="
-          kubectl logs -n ramen-system deployment/ramen-dr-cluster-operator -c manager
+          kubectl logs -n openshift-dr-system deployment/ramen-dr-cluster-operator -c manager
           echo "===> END failure details <==="
 
   publish-image:
