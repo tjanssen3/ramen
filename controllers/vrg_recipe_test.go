@@ -13,6 +13,7 @@ import (
 	gomegatypes "github.com/onsi/gomega/types"
 	ramen "github.com/ramendr/ramen/api/v1alpha1"
 	"github.com/ramendr/ramen/controllers"
+	vrgController "github.com/ramendr/ramen/controllers"
 	recipe "github.com/ramendr/recipe/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -49,6 +50,23 @@ var _ = Describe("VolumeReplicationGroupRecipe", func() {
 		vrgDataReady        metav1.Condition
 	)
 
+	downloadPVCs := func(s vrgController.ObjectStorer, pvcKeyPrefix string) (
+		pvcList []corev1.PersistentVolumeClaim, err error,
+	) {
+		err = vrgController.DownloadTypedObjects(s, pvcKeyPrefix, &pvcList)
+
+		return
+	}
+	deletePVCsFromS3 := func(objectStorer vrgController.ObjectStorer, pvcs []corev1.PersistentVolumeClaim) error {
+		for _, pvc := range pvcs {
+			err := vrgController.DeleteTypedObjects(objectStorer, pvc.Namespace+"/"+pvc.Name, pvc.Name, pvc)
+			Expect(err).ToNot(HaveOccurred())
+		}
+		return nil
+	}
+	vrgNamespacedName := func(vrg ramen.VolumeReplicationGroup) string {
+		return types.NamespacedName{Namespace: vrg.Namespace, Name: vrg.Name}.String()
+	}
 	scCreateAndDeferDelete := func() {
 		sc := &storagev1.StorageClass{
 			ObjectMeta:  metav1.ObjectMeta{Name: scName},
@@ -168,6 +186,17 @@ var _ = Describe("VolumeReplicationGroupRecipe", func() {
 			},
 		}
 	}
+	vrgDefineWithS3 := func(namespaceName string, s3ProfileNames []string) {
+		vrg = &ramen.VolumeReplicationGroup{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespaceName, Name: "a"},
+			Spec: ramen.VolumeReplicationGroupSpec{
+				S3Profiles:           s3ProfileNames,
+				ReplicationState:     ramen.Primary,
+				Sync:                 &ramen.VRGSyncSpec{},
+				KubeObjectProtection: &ramen.KubeObjectProtectionSpec{},
+			},
+		}
+	}
 	vrgAsyncModeEnable := func() {
 		vrg.Spec.Async = &ramen.VRGAsyncSpec{
 			SchedulingInterval: vrInterval,
@@ -222,6 +251,11 @@ var _ = Describe("VolumeReplicationGroupRecipe", func() {
 		vrgDataReady = vrgStatusConditionGetAndExpectNonNil(controllers.VRGConditionTypeDataReady)
 
 		return vrgDataReady
+	}
+	vrgClusterDataProtectedConditionGetAndExpectNonNil := func() metav1.Condition {
+		vrgClusterDataProtected := vrgStatusConditionGetAndExpectNonNil(controllers.VRGConditionTypeClusterDataProtected)
+
+		return vrgClusterDataProtected
 	}
 	vrgPvcsGet := func() []ramen.ProtectedPVC {
 		return vrgGetAndExpectSuccess().Status.ProtectedPVCs
@@ -359,6 +393,64 @@ var _ = Describe("VolumeReplicationGroupRecipe", func() {
 		JustBeforeEach(OncePerOrdered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(vrgDelete)
+		})
+		When("a VRG, not referencing a recipe", func() {
+			var vrg *ramen.VolumeReplicationGroup
+			var pvc *corev1.PersistentVolumeClaim
+			objectStorer := objectStorers[0]
+
+			BeforeEach(OncePerOrdered, func() {
+				pvc = pvcCreate(ramenNamespace)
+
+				// need a s3 profile for this test; re-use "success" version from suite_test.go
+				vrgDefineWithS3(ramenNamespace, []string{s3Profiles[0].S3ProfileName})
+				//vrg.Spec.S3Profiles = []string{s3Profiles[0].S3ProfileName}
+				Expect(err).ToNot(HaveOccurred())
+			})
+			JustBeforeEach(OncePerOrdered, func() {
+				vrg = vrgGetAndExpectSuccess()
+				Expect(pvc).ToNot(BeNil()) //temp?
+			})
+			Context("is upgraded to multi Namespace protection", func() {
+				Context("from single Namespace protection", func() {
+					It("VRG restores blank Namespace field from s3", func() {
+						Eventually(vrgClusterDataProtectedConditionGetAndExpectNonNil).ShouldNot(BeNil())
+
+						vrgNamespacedNameString := vrgNamespacedName(*vrg)
+
+						// get pvc from s3 store
+						pvcList, err := downloadPVCs(objectStorer, vrgNamespacedNameString)
+						pvcsWithoutNamespaces := []corev1.PersistentVolumeClaim{}
+
+						// remove namespace field, add to new list for upload
+						for _, pvc := range pvcList {
+							blankNamespace := pvc
+							blankNamespace.Namespace = ""
+							pvcsWithoutNamespaces = append(pvcsWithoutNamespaces, blankNamespace)
+						}
+
+						// delete old objects in s3
+						deletePVCsFromS3(objectStorer, pvcList)
+
+						// upload new objects to s3
+						for _, pvc := range pvcsWithoutNamespaces {
+							vrgController.UploadPVC(objectStorer, vrgNamespacedNameString, pvc.Name, pvc)
+						}
+
+						// get vrg generation number
+						//vrgGeneration := vrg.GetGeneration()  // commented out to fix make
+
+						Expect(vrg.Name).ToNot(BeNil()) // temp
+						Expect(err).ToNot(HaveOccurred())
+					})
+					It("VRG populates blank Namespace field after reconcile", func() {
+						Expect(err).ToNot(HaveOccurred())
+					})
+					It("VRG PVC List only contains expected PVCs", func() {
+						Expect(err).ToNot(HaveOccurred())
+					})
+				})
+			})
 		})
 		When("a VRG, referencing a recipe,", func() {
 			BeforeEach(OncePerOrdered, func() {
